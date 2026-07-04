@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spirograph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F2E9;
+    --canvas-bg: #FFFFFF;
+    --grid-line: #E8E2D2;
+    --panel-bg: #FFFFFF;
+    --border: #DCD4BF;
+    --text-primary: #221F1A;
+    --text-secondary: #6B6255;
+    --text-muted: #A39A88;
+    --ring-color: #D9711F;
+    --gear-color: #2F6FA6;
+    --pen-marker: #E23D2E;
+    --accent: #1A1A1A;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--text-primary);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .app {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 32px 28px 60px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 2px solid var(--text-primary);
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--ring-color);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .tagline {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 8px 0 0;
+    line-height: 1.5;
+    max-width: 480px;
+  }
+
+
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .canvas-frame {
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  }
+
+  .canvas-stack {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center center;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .canvas-stack canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #overlay-canvas {
+    touch-action: none;
+  }
+
+  .playback-secondary {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .playback-secondary #btn-instant {
+    flex: 1;
+  }
+
+  button {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 9px 16px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+
+  button:hover { background: var(--paper); border-color: var(--text-muted); }
+  button:active { transform: translateY(1px); }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: default;
+    transform: none;
+  }
+  button:disabled:hover { background: var(--panel-bg); border-color: var(--border); }
+
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: #333333; }
+  button.primary:disabled:hover { background: var(--accent); }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .icon-btn svg { width: 18px; height: 18px; display: block; }
+
+  .icon-btn.ghost {
+    color: var(--text-secondary);
+    border-color: var(--border);
+    background: transparent;
+  }
+  .icon-btn.ghost:hover {
+    color: var(--pen-marker);
+    border-color: var(--pen-marker);
+    background: var(--panel-bg);
+  }
+
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px;
+  }
+
+  .panel + .panel { margin-top: 20px; }
+
+  .panel.quiet {
+    padding: 14px 18px;
+    border-color: var(--grid-line);
+  }
+
+  .panel.quiet .panel-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 12px;
+  }
+
+  .panel.quiet .control {
+    margin-bottom: 14px;
+  }
+
+  .panel.quiet .control-row label {
+    color: var(--text-muted);
+  }
+
+  .panel-label {
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .control {
+    margin-bottom: 18px;
+  }
+  .control:last-child { margin-bottom: 0; }
+
+  .control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .control-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .control-row .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #1A1A1A;
+  }
+
+  input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .transport {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .transport-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .transport-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .swatches {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .swatch.active {
+    border-color: var(--text-primary);
+  }
+
+  #custom-color-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  .swatch-custom {
+    position: relative;
+    background: transparent;
+    border: 1.5px dashed var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+  .swatch-custom:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+  }
+  .swatch-custom.active {
+    border-style: solid;
+  }
+  .swatch-custom.picked .swatch-custom-icon {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 10px;
+    height: 10px;
+    padding: 2px;
+    background: #fff;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  .readout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .readout-item .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+  }
+
+  .readout-item .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: var(--grid-line);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 14px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--ring-color);
+    width: 0%;
+    transition: width 0.05s linear;
+  }
+
+  .view-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .view-tab {
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .view-tab:hover { background: var(--panel-bg); border-color: var(--text-muted); }
+  .view-tab.active {
+    background: var(--text-primary);
+    color: #fff;
+    border-color: var(--text-primary);
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .math-content {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .math-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 32px 36px;
+  }
+
+  .math-panel h2 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 36px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .math-panel h2:first-child { margin-top: 0; }
+
+  .math-panel p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-primary);
+    margin: 0 0 14px;
+  }
+
+  .math-panel .equation-block {
+    margin: 18px 0;
+    padding: 18px 22px;
+    background: var(--paper);
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+
+  .eq-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 2;
+    color: var(--text-primary);
+  }
+
+  .math-panel ul {
+    margin: 0 0 14px;
+    padding-left: 20px;
+    font-size: 15px;
+    line-height: 1.7;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .math-panel li { margin-bottom: 6px; }
+
+  .math-panel table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 16px 0 20px;
+  }
+  .math-panel th, .math-panel td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--grid-line);
+  }
+  .math-panel th {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 12px;
+  }
+  .math-panel td:first-child, .math-panel th:first-child {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .math-panel .note {
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--ring-color);
+    padding-left: 14px;
+    margin: 16px 0;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div>
+      <div class="eyebrow">Hypotrochoid curves</div>
+      <h1>Spirograph</h1>
+      <p class="tagline">Drag the wheel and pen centers, then play to draw spirograph patterns.</p>
+    </div>
+  </header>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tab-draw">Draw</button>
+    <button class="view-tab" id="tab-math">Math</button>
+  </div>
+
+  <div id="view-draw" class="view active">
+  <div class="layout">
+
+    <div>
+      <div class="canvas-frame">
+        <div class="canvas-stack" id="canvas-stack">
+          <canvas id="ink-canvas"></canvas>
+          <canvas id="overlay-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel quiet">
+        <div class="panel-label">Wheel &amp; pen</div>
+
+        <div class="control">
+          <div class="control-row">
+            <label>Wheel radius (r)</label>
+            <span class="value" id="val-r">0.25</span>
+          </div>
+          <input type="range" id="ctrl-r" min="0.01" max="0.99" value="0.25" step="0.01">
+        </div>
+
+        <div class="control">
+          <div class="control-row">
+            <label>Pen offset (d)</label>
+            <span class="value" id="val-d">0.18</span>
+          </div>
+          <input type="range" id="ctrl-d" min="0" max="0.25" value="0.18" step="0.01">
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">Pen color</div>
+        <div class="swatches" id="swatches"></div>
+        <input type="color" id="custom-color-input" value="#8A5A44" aria-label="Custom pen color">
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">Playback</div>
+
+        <div class="transport">
+          <div class="transport-item">
+            <button class="icon-btn primary" id="btn-play" title="Play" aria-label="Play">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+            </button>
+            <span class="transport-label">Play</span>
+          </div>
+          <div class="transport-item">
+            <button class="icon-btn" id="btn-pause" title="Pause" aria-label="Pause" disabled>
+              <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/></svg>
+            </button>
+            <span class="transport-label">Pause</span>
+          </div>
+          <div class="transport-item">
+            <button class="icon-btn" id="btn-stop" title="Stop (rewind)" aria-label="Stop">
+              <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>
+            </button>
+            <span class="transport-label">Stop</span>
+          </div>
+        </div>
+
+        <div class="control" style="margin-top: 18px;">
+          <div class="control-row">
+            <label>Drawing speed</label>
+          </div>
+          <input type="range" id="ctrl-speed" min="1" max="12" value="4" step="1">
+        </div>
+
+        <div class="playback-secondary">
+          <button class="icon-btn ghost" id="btn-clear" title="Clear canvas" aria-label="Clear canvas">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16"/>
+              <path d="M9 7V4h6v3"/>
+              <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/>
+              <path d="M10 11v6"/>
+              <path d="M14 11v6"/>
+            </svg>
+          </button>
+          <button id="btn-instant">Draw instantly</button>
+        </div>
+
+        <button id="btn-download" style="width: 100%; margin-top: 8px;">Download PNG</button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+  <div id="view-math" class="view">
+    <div class="math-content">
+      <div class="math-panel">
+
+        <h2>What is a hypotrochoid?</h2>
+        <p>Picture a small wheel of radius <em>r</em> rolling around the inside of a larger fixed ring of radius <em>R</em>. A pen is attached to the wheel, at distance <em>d</em> from its center. As the wheel rolls, the pen traces a curve. That curve is called a hypotrochoid.</p>
+        <p>Mathematicians call this whole family of shapes a <strong>roulette</strong>: the general name for any curve traced by a point on one shape as it rolls along another. This app only draws the rolling inside case. Rolling a wheel around the <em>outside</em> of a circle instead produces a related curve called an epitrochoid, which this app doesn't draw.</p>
+
+        <h2>The four numbers that define the shape</h2>
+        <ul>
+          <li><strong>R</strong>: the radius of the fixed outer ring. This app keeps R = 1 for every pattern. Only its size relative to the wheel matters.</li>
+          <li><strong>r</strong>: the radius of the rolling wheel. This is the Wheel radius control.</li>
+          <li><strong>d</strong>: the distance from the wheel's center to the pen. This is the Pen offset control.</li>
+          <li><strong>&theta;</strong> (theta): the angle, in radians, that the wheel's center has swept around the ring so far. Pressing Play advances &theta; over time. It starts at 0 and grows until the pattern is complete.</li>
+        </ul>
+
+        <h2>The equations</h2>
+        <p>At any angle &theta;, the pen sits at:</p>
+        <div class="equation-block">
+          <div class="eq-line">x(θ) = (R − r) cos θ + d cos((R − r) · θ / r )</div>
+          <div class="eq-line">y(θ) = (R − r) sin θ − d sin((R − r) · θ / r )</div>
+        </div>
+        <p>Each equation has two parts. The first part, (R − r) cos θ or (R − r) sin θ, gives the position of the wheel's <em>center</em> as it travels around the ring. The second part adds the pen's position relative to that center. The pen doesn't just sit still on the wheel: it spins around the wheel's center at rate (R − r) / r, which is faster than the wheel's center moves around the ring whenever r is smaller than R.</p>
+        <p>This spin rate isn't a free choice. It comes directly from the wheel rolling without slipping: the distance the wheel rolls along the inside of the ring must exactly match the distance that unwinds around the wheel's own rim. Matching those two distances is what produces the (R − r) / r factor.</p>
+
+        <h2>When does the pattern close?</h2>
+        <p>Write the wheel radius as a fraction in lowest terms: r = m/n, where m and n share no common factor. For example, r = 0.25 is 1/4, so m = 1 and n = 4. This fraction tells you everything about how the pattern finishes:</p>
+        <ul>
+          <li>The wheel's center must travel all the way around the ring <strong>m</strong> times before the curve closes.</li>
+          <li>The finished pattern has <strong>n</strong> fold rotational symmetry: it looks the same after turning it by one nth of a full circle.</li>
+        </ul>
+        <p>This follows from a general closing condition for hypotrochoids: &theta; must sweep 2&pi; &middot; lcm(r, R) / R radians for the curve to close, where lcm is the least common multiple, extended to work with fractions. Since R = 1 here, this simplifies to:</p>
+        <div class="equation-block">
+          <div class="eq-line">θ_max = 2π · m,&nbsp;&nbsp;&nbsp;&nbsp;where r = m/n in lowest terms</div>
+        </div>
+        <p>Two examples. r = 0.25 = 1/4 gives m = 1, n = 4: the pattern closes after one loop around the ring and has 4 fold symmetry. r = 0.4 = 2/5 gives m = 2, n = 5: it takes two loops to close, and the result has 5 fold symmetry.</p>
+        <p>This app rounds r to the nearest 0.01 before working out m and n. That keeps the value it draws with and the value it uses to decide when to stop in exact agreement, so a pattern always comes to a clean, closed stop instead of trailing off.</p>
+
+        <h2>Special cases</h2>
+        <ul>
+          <li><strong>d = 0.</strong> The pen sits exactly at the wheel's center, so it simply traces a plain circle of radius R − r. With no offset, there's nothing to spin, so no petals form.</li>
+          <li><strong>d = r.</strong> The pen sits exactly at the rim of the wheel. This special case is called a hypocycloid, and the curve meets the outer ring at n sharp points, called cusps, instead of rounded petals. The 4 cusped astroid, from r = 0.25, is the best known example.</li>
+          <li><strong>r = 0.5 (so R = 2r).</strong> This case is special on its own. If d is not equal to r, the pattern is a perfect ellipse. If d does equal r, the two cusps collapse into a straight line segment. This line-producing case is known as a Tusi couple, named after the 13th century astronomer Nasir al-Din al-Tusi, who used it to model circular motion producing straight-line motion.</li>
+          <li><strong>d greater than r.</strong> The pen extends past the wheel's rim, producing looping, self-crossing patterns instead of smooth petals. This app keeps the pen offset at or inside the wheel's edge, so this case falls outside the range you can draw here.</li>
+        </ul>
+
+        <h2>Symbols and controls</h2>
+        <table>
+          <tr><th>Symbol</th><th>Meaning</th><th>In the app</th></tr>
+          <tr><td>R</td><td>Ring radius</td><td>Fixed at 1</td></tr>
+          <tr><td>r</td><td>Wheel radius</td><td>Wheel radius slider, or drag the grey wheel handle</td></tr>
+          <tr><td>d</td><td>Pen offset from wheel center</td><td>Pen offset slider, or drag the colored pen handle</td></tr>
+          <tr><td>&theta;</td><td>Angle swept so far</td><td>Advances automatically while playing</td></tr>
+          <tr><td>(none)</td><td>Pacing of the animation</td><td>Drawing speed slider. It only changes how fast the pattern is drawn, not its shape.</td></tr>
+        </table>
+
+        <h2>A bit of history</h2>
+        <p>The drawing toy that popularized these curves, Spirograph, was invented by the English engineer Denys Fisher. He built early prototypes from Meccano pieces between 1962 and 1964, first exhibited the toy at the Nuremberg International Toy Fair in 1965, and it reached the US market through Kenner the following year. The underlying mathematics is far older. In 1827, the architect and engineer Peter Hubert Desvignes built a device called the Speiragraph for drawing related roulette patterns, long before this mathematics was turned into a children's toy.</p>
+
+        <h2>References</h2>
+        <ul>
+          <li>Weisstein, Eric W. "Hypotrochoid." MathWorld, a Wolfram Resource. mathworld.wolfram.com/Hypotrochoid.html</li>
+          <li>Weisstein, Eric W. "Hypocycloid." MathWorld, a Wolfram Resource. mathworld.wolfram.com/Hypocycloid.html</li>
+          <li>"Hypotrochoid." Wikipedia. en.wikipedia.org/wiki/Hypotrochoid</li>
+          <li>"Spirograph." Wikipedia. en.wikipedia.org/wiki/Spirograph</li>
+          <li>"Denys Fisher." Wikipedia. en.wikipedia.org/wiki/Denys_Fisher</li>
+        </ul>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const inkCanvas = document.getElementById('ink-canvas');
+  const overlayCanvas = document.getElementById('overlay-canvas');
+  const stack = document.getElementById('canvas-stack');
+  const inkCtx = inkCanvas.getContext('2d');
+  const overlayCtx = overlayCanvas.getContext('2d');
+
+  const ctrlr = document.getElementById('ctrl-r');
+  const ctrlD = document.getElementById('ctrl-d');
+  const ctrlSpeed = document.getElementById('ctrl-speed');
+  const valr = document.getElementById('val-r');
+  const valD = document.getElementById('val-d');
+  const btnPlay = document.getElementById('btn-play');
+  const btnPause = document.getElementById('btn-pause');
+  const btnStop = document.getElementById('btn-stop');
+  const btnClear = document.getElementById('btn-clear');
+  const btnInstant = document.getElementById('btn-instant');
+  const btnDownload = document.getElementById('btn-download');
+  const swatchesEl = document.getElementById('swatches');
+
+  const R = 1;
+  const DENOM = 100;
+  const HIT_RADIUS = 16;
+
+  const PEN_COLORS = ['#1B3A6B', '#C93B3B', '#1D8A7A', '#D9711F', '#6B3FA0', '#1A1A1A'];
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+  let state = {
+    R: R,
+    r: 0.25,
+    d: 0.18,
+    color: PEN_COLORS[0],
+    speed: 4,
+    t: 0,
+    tMax: 0,
+    playing: false,
+    dpr: 1,
+    scale: 1,
+    cx: 0,
+    cy: 0
+  };
+
+  let lastPoint = null;
+  let dragMode = null;       // 'wheel' | 'pen' | null
+  let hoveredHandle = null;  // 'wheel' | 'pen' | null
+
+  function toScreen(x, y) {
+    return { sx: state.cx + x * state.scale, sy: state.cy - y * state.scale };
+  }
+
+  function screenToMath(sx, sy) {
+    return { x: (sx - state.cx) / state.scale, y: -(sy - state.cy) / state.scale };
+  }
+
+  function computeGeometry() {
+    const rInt = Math.round(state.r * DENOM);
+    const g = gcd(DENOM, rInt);
+    const loops = rInt / g;
+    state.tMax = 2 * Math.PI * loops;
+  }
+
+  function resizeCanvases() {
+    const rect = stack.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    state.dpr = dpr;
+    [inkCanvas, overlayCanvas].forEach(c => {
+      c.width = rect.width * dpr;
+      c.height = rect.height * dpr;
+    });
+    inkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.cx = rect.width / 2;
+    state.cy = rect.height / 2;
+    const canvasRadius = Math.min(rect.width, rect.height) / 2 - 20;
+    state.scale = canvasRadius / state.R;
+  }
+
+  function penPoint(t) {
+    const R = state.R, r = state.r, d = state.d;
+    const cx = (R - r) * Math.cos(t);
+    const cy = (R - r) * Math.sin(t);
+    const spin = (R - r) / r * t;
+    const x = cx + d * Math.cos(spin);
+    const y = cy - d * Math.sin(spin);
+    return { x, y, cx, cy, spin };
+  }
+
+  function drawCircleOutline(ctx, centerXY, radius, color, width) {
+    const { sx, sy } = toScreen(centerXY.x, centerXY.y);
+    const rPix = radius * state.scale;
+    ctx.beginPath();
+    ctx.arc(sx, sy, rPix, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  function drawHandleHighlight(sx, sy, color) {
+    overlayCtx.beginPath();
+    overlayCtx.arc(sx, sy, 11, 0, Math.PI * 2);
+    overlayCtx.fillStyle = color;
+    overlayCtx.globalAlpha = 0.16;
+    overlayCtx.fill();
+    overlayCtx.globalAlpha = 1;
+  }
+
+  function drawOverlay(t) {
+    const rect = stack.getBoundingClientRect();
+    overlayCtx.clearRect(0, 0, rect.width, rect.height);
+
+    drawCircleOutline(overlayCtx, { x: 0, y: 0 }, state.R, '#C9C2B2', 1.5);
+
+    const p = penPoint(t);
+    drawCircleOutline(overlayCtx, { x: p.cx, y: p.cy }, state.r, '#A39A88', 1.5);
+
+    const centerScreen = toScreen(p.cx, p.cy);
+    const penScreen = toScreen(p.x, p.y);
+    const activeHandle = dragMode || hoveredHandle;
+
+    if (activeHandle === 'wheel') drawHandleHighlight(centerScreen.sx, centerScreen.sy, '#A39A88');
+    if (activeHandle === 'pen') drawHandleHighlight(penScreen.sx, penScreen.sy, state.color);
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(centerScreen.sx, centerScreen.sy, 5, 0, Math.PI * 2);
+    overlayCtx.fillStyle = '#A39A88';
+    overlayCtx.fill();
+    overlayCtx.strokeStyle = '#ffffff';
+    overlayCtx.lineWidth = 1.5;
+    overlayCtx.stroke();
+
+    overlayCtx.beginPath();
+    overlayCtx.arc(penScreen.sx, penScreen.sy, 5.5, 0, Math.PI * 2);
+    overlayCtx.fillStyle = state.color;
+    overlayCtx.fill();
+    overlayCtx.strokeStyle = '#ffffff';
+    overlayCtx.lineWidth = 1.5;
+    overlayCtx.stroke();
+  }
+
+  function drawInkSegment(t0, t1) {
+    const p0 = lastPoint || penPoint(t0);
+    const p1 = penPoint(t1);
+    const s0 = toScreen(p0.x, p0.y);
+    const s1 = toScreen(p1.x, p1.y);
+    inkCtx.beginPath();
+    inkCtx.moveTo(s0.sx, s0.sy);
+    inkCtx.lineTo(s1.sx, s1.sy);
+    inkCtx.strokeStyle = state.color;
+    inkCtx.lineWidth = 1.8;
+    inkCtx.lineCap = 'round';
+    inkCtx.stroke();
+    lastPoint = p1;
+  }
+
+  function clearInk() {
+    const rect = stack.getBoundingClientRect();
+    inkCtx.clearRect(0, 0, rect.width, rect.height);
+    lastPoint = null;
+  }
+
+  function updateTransportButtons() {
+    btnPlay.disabled = state.playing;
+    btnPause.disabled = !state.playing;
+    ctrlr.disabled = state.playing;
+    ctrlD.disabled = state.playing;
+  }
+
+  // Recompute the mechanism (called on slider change or handle drag).
+  // Never touches the ink layer, so existing patterns stay in place
+  // and the next Play/Draw instantly adds a new pattern on top.
+  function applyGeometryChange() {
+    computeGeometry();
+    state.playing = false;
+    state.t = 0;
+    lastPoint = null;
+    updateTransportButtons();
+    drawOverlay(0);
+  }
+
+  // One-time setup: sizes the canvases and starts from a blank sheet.
+  function initializeApp() {
+    computeGeometry();
+    resizeCanvases();
+    clearInk();
+    state.t = 0;
+    state.playing = false;
+    updateTransportButtons();
+    drawOverlay(0);
+  }
+
+  const STEP_BASE = 0.02;
+
+  function animate() {
+    if (state.playing && state.t < state.tMax) {
+      const stepsThisFrame = state.speed;
+      for (let i = 0; i < stepsThisFrame; i++) {
+        if (state.t >= state.tMax) break;
+        const nextT = Math.min(state.t + STEP_BASE, state.tMax);
+        drawInkSegment(state.t, nextT);
+        state.t = nextT;
+      }
+    }
+    if (!dragMode) drawOverlay(state.t);
+    if (state.t >= state.tMax && state.playing) {
+      state.playing = false;
+      updateTransportButtons();
+    }
+    requestAnimationFrame(animate);
+  }
+
+  function drawInstantly() {
+    let t = 0;
+    lastPoint = penPoint(0);
+    while (t < state.tMax) {
+      const nextT = Math.min(t + STEP_BASE, state.tMax);
+      drawInkSegment(t, nextT);
+      t = nextT;
+    }
+    state.t = state.tMax;
+    state.playing = false;
+    updateTransportButtons();
+    drawOverlay(state.t);
+  }
+
+  function syncControlsFromState() {
+    ctrlr.value = state.r.toFixed(2);
+    ctrlD.max = state.r.toFixed(2);
+    ctrlD.value = state.d.toFixed(2);
+    valr.textContent = state.r.toFixed(2);
+    valD.textContent = state.d.toFixed(2);
+  }
+
+  ctrlr.addEventListener('input', () => {
+    let r = parseFloat(ctrlr.value);
+    r = Math.min(0.99, Math.max(0.01, r));
+    state.r = r;
+    if (state.d > state.r) state.d = state.r;
+    ctrlD.max = state.r.toFixed(2);
+    ctrlD.value = state.d.toFixed(2);
+    valr.textContent = state.r.toFixed(2);
+    valD.textContent = state.d.toFixed(2);
+    applyGeometryChange();
+  });
+
+  ctrlD.addEventListener('input', () => {
+    let d = parseFloat(ctrlD.value);
+    d = Math.min(state.r, Math.max(0, d));
+    state.d = d;
+    valD.textContent = state.d.toFixed(2);
+    applyGeometryChange();
+  });
+
+  ctrlSpeed.addEventListener('input', () => {
+    state.speed = parseInt(ctrlSpeed.value, 10);
+  });
+
+  btnPlay.addEventListener('click', () => {
+    if (state.t >= state.tMax) {
+      state.t = 0;
+      lastPoint = penPoint(0);
+    } else if (!lastPoint) {
+      lastPoint = penPoint(state.t);
+    }
+    state.playing = true;
+    updateTransportButtons();
+  });
+
+  btnPause.addEventListener('click', () => {
+    state.playing = false;
+    updateTransportButtons();
+  });
+
+  btnStop.addEventListener('click', () => {
+    state.playing = false;
+    state.t = 0;
+    lastPoint = null;
+    updateTransportButtons();
+    drawOverlay(0);
+  });
+
+  btnClear.addEventListener('click', () => {
+    clearInk();
+  });
+
+  btnInstant.addEventListener('click', () => {
+    drawInstantly();
+  });
+
+  btnDownload.addEventListener('click', () => {
+    const rect = stack.getBoundingClientRect();
+    const merged = document.createElement('canvas');
+    merged.width = rect.width * state.dpr;
+    merged.height = rect.height * state.dpr;
+    const mctx = merged.getContext('2d');
+    mctx.fillStyle = '#FFFFFF';
+    mctx.fillRect(0, 0, merged.width, merged.height);
+    mctx.drawImage(inkCanvas, 0, 0);
+    const link = document.createElement('a');
+    link.download = 'spirograph.png';
+    link.href = merged.toDataURL('image/png');
+    link.click();
+  });
+
+  PEN_COLORS.forEach((color, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'swatch' + (i === 0 ? ' active' : '');
+    btn.style.background = color;
+    btn.addEventListener('click', () => {
+      state.color = color;
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      drawOverlay(state.t);
+    });
+    swatchesEl.appendChild(btn);
+  });
+
+  // --- Custom color: a 7th swatch that opens the native color picker ---
+  const customColorInput = document.getElementById('custom-color-input');
+  const swatchCustom = document.createElement('button');
+  swatchCustom.className = 'swatch swatch-custom';
+  swatchCustom.title = 'Custom color';
+  swatchCustom.setAttribute('aria-label', 'Choose a custom pen color');
+  swatchCustom.innerHTML = '<svg class="swatch-custom-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-.75 1.81-1.28 2.34-.15.15-.15.4.02.53 1.1.85 2.5 1.32 3.26 1.32 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.17z"/></svg>';
+
+  swatchCustom.addEventListener('click', () => {
+    customColorInput.click();
+  });
+
+  customColorInput.addEventListener('input', () => {
+    const color = customColorInput.value;
+    state.color = color;
+    swatchCustom.style.background = color;
+    swatchCustom.classList.add('picked');
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    swatchCustom.classList.add('active');
+    drawOverlay(state.t);
+  });
+
+  swatchesEl.appendChild(swatchCustom);
+
+  // --- Drag-to-adjust: grab the wheel or the pen directly on the canvas ---
+
+  function getLocalPos(evt) {
+    const rect = stack.getBoundingClientRect();
+    return { sx: evt.clientX - rect.left, sy: evt.clientY - rect.top };
+  }
+
+  function hitTestHandles(sx, sy) {
+    const p = penPoint(state.t);
+    const centerScreen = toScreen(p.cx, p.cy);
+    const penScreen = toScreen(p.x, p.y);
+    const dPen = Math.hypot(sx - penScreen.sx, sy - penScreen.sy);
+    const dWheel = Math.hypot(sx - centerScreen.sx, sy - centerScreen.sy);
+    if (dPen <= HIT_RADIUS) return 'pen';
+    if (dWheel <= HIT_RADIUS) return 'wheel';
+    return null;
+  }
+
+  function handleDragMove(evt) {
+    const { sx, sy } = getLocalPos(evt);
+    const math = screenToMath(sx, sy);
+    if (dragMode === 'wheel') {
+      const dist = Math.hypot(math.x, math.y);
+      let newR = state.R - dist;
+      newR = Math.min(0.99, Math.max(0.01, newR));
+      newR = Math.round(newR * 100) / 100;
+      state.r = newR;
+      if (state.d > state.r) state.d = state.r;
+    } else if (dragMode === 'pen') {
+      const p0 = penPoint(0);
+      const dist = Math.hypot(math.x - p0.cx, math.y - p0.cy);
+      state.d = Math.round(Math.min(state.r, Math.max(0, dist)) * 100) / 100;
+    }
+    syncControlsFromState();
+    computeGeometry();
+    drawOverlay(0);
+  }
+
+  overlayCanvas.addEventListener('pointerdown', (evt) => {
+    const { sx, sy } = getLocalPos(evt);
+    const hit = hitTestHandles(sx, sy);
+    if (!hit) return;
+    dragMode = hit;
+    hoveredHandle = hit;
+    overlayCanvas.setPointerCapture(evt.pointerId);
+    state.playing = false;
+    state.t = 0;
+    lastPoint = null;
+    updateTransportButtons();
+    overlayCanvas.style.cursor = 'grabbing';
+    handleDragMove(evt);
+  });
+
+  overlayCanvas.addEventListener('pointermove', (evt) => {
+    if (dragMode) {
+      handleDragMove(evt);
+      return;
+    }
+    const { sx, sy } = getLocalPos(evt);
+    const hit = hitTestHandles(sx, sy);
+    if (hit !== hoveredHandle) {
+      hoveredHandle = hit;
+      overlayCanvas.style.cursor = hit ? 'grab' : 'default';
+      drawOverlay(state.t);
+    }
+  });
+
+  function endDrag(evt) {
+    if (!dragMode) return;
+    dragMode = null;
+    hoveredHandle = null;
+    overlayCanvas.style.cursor = 'default';
+    try { overlayCanvas.releasePointerCapture(evt.pointerId); } catch (e) {}
+    applyGeometryChange();
+  }
+
+  overlayCanvas.addEventListener('pointerup', endDrag);
+  overlayCanvas.addEventListener('pointercancel', endDrag);
+  overlayCanvas.addEventListener('pointerleave', (evt) => {
+    if (!dragMode) {
+      hoveredHandle = null;
+      overlayCanvas.style.cursor = 'default';
+      drawOverlay(state.t);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    const hadContent = inkCanvas.width > 0 && inkCanvas.height > 0;
+    let snapshot = null;
+    if (hadContent) {
+      snapshot = document.createElement('canvas');
+      snapshot.width = inkCanvas.width;
+      snapshot.height = inkCanvas.height;
+      snapshot.getContext('2d').drawImage(inkCanvas, 0, 0);
+    }
+
+    resizeCanvases();
+
+    if (snapshot && inkCanvas.width > 0 && inkCanvas.height > 0) {
+      inkCtx.save();
+      inkCtx.setTransform(1, 0, 0, 1, 0, 0);
+      inkCtx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+      inkCtx.drawImage(snapshot, 0, 0, snapshot.width, snapshot.height, 0, 0, inkCanvas.width, inkCanvas.height);
+      inkCtx.restore();
+    }
+
+    drawOverlay(state.t);
+  });
+
+  initializeApp();
+  requestAnimationFrame(animate);
+
+  // --- View tabs: Draw / Math ---
+  const tabDraw = document.getElementById('tab-draw');
+  const tabMath = document.getElementById('tab-math');
+  const viewDraw = document.getElementById('view-draw');
+  const viewMath = document.getElementById('view-math');
+
+  function showView(name) {
+    const showDraw = name === 'draw';
+    tabDraw.classList.toggle('active', showDraw);
+    tabMath.classList.toggle('active', !showDraw);
+    viewDraw.classList.toggle('active', showDraw);
+    viewMath.classList.toggle('active', !showDraw);
+  }
+
+  tabDraw.addEventListener('click', () => showView('draw'));
+  tabMath.addEventListener('click', () => showView('math'));
+
+})();
+</script>
+</body>
+</html>
